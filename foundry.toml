@@ -1,0 +1,45 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+
+# Solidity 编译器配置
+solc_version = "0.8.30"
+evm_version = "london"
+
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+# 测试与 Gas 报告
+test = 'test'
+gas_reports = ["MemeSunToken"]
+verbosity = 2
+
+remappings = [
+  '@openzeppelin/=lib/openzeppelin-contracts/',
+  '@forge-std/=lib/forge-std/src/',
+]
+ffi = true
+fs_permissions = [
+  { access = "read", path = "./" }
+]
+
+# RPC & 验证配置
+etherscan_api_key = "${ETHER_SCAN}"
+
+# 构建信息（审计时用）
+build_info = true
+
+[profile.dev]
+eth_rpc_url = "http://127.0.0.1:7545"
+
+[profile.test]
+eth_rpc_url = "https://sepolia.infura.io/v3/${TEST_SEPOLIA_INFURA_API_KEY}"
+
+[profile.prod]
+eth_rpc_url = "https://eth-mainnet.alchemyapi.io/v2/YOUR_KEY"
+optimizer_runs = 20000
+via_ir = true
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
