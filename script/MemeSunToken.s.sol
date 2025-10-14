@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
 import {MemeSunToken} from "../src/MemeSunToken.sol";
 //部署
 contract DeployMemeSunToken is Script {
@@ -12,6 +13,7 @@ contract DeployMemeSunToken is Script {
         string memory SYMBOL="MST";
         uint256 SURPLUS=10000000 * 10**18;
         MemeSunToken token=new MemeSunToken(NAME,SYMBOL,SURPLUS);
+        console.log(token.balanceOf(msg.sender));
         vm.stopBroadcast();
     }
 }

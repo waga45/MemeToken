@@ -19,6 +19,7 @@ verbosity = 2
 remappings = [
   '@openzeppelin/=lib/openzeppelin-contracts/',
   '@forge-std/=lib/forge-std/src/',
+  '@uniswap-v2-core/=lib/v2-core/',
 ]
 ffi = true
 fs_permissions = [
