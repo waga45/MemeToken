@@ -1,14 +1,3 @@
-## Foundry
-
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
 ## Documentation
 
 https://book.getfoundry.sh/
@@ -79,19 +68,28 @@ $ cast --help
     forge test --match-contract "contractName"
  4. 查看gas消耗报告
     --gas-report
+    
+ 5. debug
+    forge test --debug file
 ```
+### MemeSunToken质押奖励设计
+MemeSunToken发行量1000w，将20%作为质押奖励 锁定在质押合约中。预计分2年发放完毕。
 
-MemeToken 代币 接入Uniswap 添加流动性
-[ 你的钱包 ]
-   │
-   ▼
-approve() → 授权 Uniswap Router 使用你的 Token
-   │
-   ▼
-addLiquidityETH() → 把 Token + ETH 一起存入流动性池
-   │
-   ▼
-✅ Uniswap 自动创建一个新交易对 (Token/WETH)
-   │
-   ▼
-你获得 LP Token（流动性凭证）
+1.质押奖励模型：时间线性发放  
+2.发放模式：用户手动领取  
+3.解除质押模式：质押起15天内不能解除提取  
+4.质押奖励的2%扣除加入流动性池，作为流通
+
+待优化：
+1.设置最小质押奖励人数  
+2.奖励方式调整：基础奖励速率*（1+质押时间/最长锁仓时间 * 倍率）
+
+1000w   
+300w 入流动性池子  
+200w 备用流动性资金  
+100w 用于质押奖励 -- 当前我的方案是 按质押占比时间线性发放  
+50w 用于批次空投  
+50w 用来社区营销  
+200w 用来挖矿奖励  
+100w 团队持有分红  
+

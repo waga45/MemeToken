@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
-
+import {console} from "forge-std/console.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -24,7 +24,7 @@ contract StakingRewards is ReentrancyGuard {
     uint256 public rewardTokenPerSecond;//每秒奖励token数量
     uint256 private hasDrawAmount;//已经解除质押金额
     address[] public stakers;//所有质押用户
-    uint256 constant public withdrawFee=2;//奖励体现手续费2%，进入流动性池子
+    uint256 constant public withdrawFeeRate=2;//奖励体现手续费2%，进入流动性池子
     uint256 public waitAndLiquifyBalance;
     bool private inSwapAndLiquify;
     address private uniswapV2Addrsss;
@@ -57,7 +57,7 @@ contract StakingRewards is ReentrancyGuard {
     constructor(address stakeToken,address _uniswapV2Addrsss,uint256 _totalRewardsAmount){
         owner=msg.sender;
         totalRewardsAmount=_totalRewardsAmount;
-        rewardTokenPerSecond=totalRewardsAmount*PRECISION/(365*24*60*60);
+        rewardTokenPerSecond=totalRewardsAmount*PRECISION/(2*365*24*60*60);
         stakingToken =IERC20(stakeToken);
         router= IUniswapV2Router02(_uniswapV2Addrsss);
     }
@@ -113,23 +113,32 @@ contract StakingRewards is ReentrancyGuard {
     //领取奖励--只做记录 不实际转账，提现的时候再转账
     function claimReward() public nonReentrant returns (bool) {
         require(msg.sender!=address(0));
-        Stake storage sk=stakes[msg.sender];
-        if (sk.amount<=0){
+        (bool result,uint256 reward,uint256 time) = claimRewardGo();
+        if (!result){
             return false;
         }
+        //notify
+        emit Claim(msg.sender,reward,time);
+        return true;
+    }
+
+    function claimRewardGo() private returns(bool result,uint256 reward,uint256 time) {
+        Stake storage sk=stakes[msg.sender];
+        if (sk.amount<=0){
+            return (false,0,block.timestamp);
+        }
+        console.log("claimRewardGo ",block.timestamp);
         uint256 rewards=calcRewardToken(sk.amount,sk.time);
         if (rewards<=0){
-            return false;
+            return (true,rewardsAmount[msg.sender],block.timestamp);
         }
         totalRewardsAmount+=rewards;
         rewardsAmount[msg.sender]+=rewards;
         sk.claimTime=block.timestamp;
         sk.time=block.timestamp;
-        //notify
-        emit Claim(msg.sender,rewards,block.timestamp);
-        return true;
+        console.log("claimReward:",rewardsAmount[msg.sender],"  time:",sk.time);
+        return (true,rewardsAmount[msg.sender],sk.time);
     }
-
     //解除质押,将质押金额+奖励金额一并提取
     function unStaked() public nonReentrant returns (bool){
         require(msg.sender!=address(0));
@@ -141,23 +150,28 @@ contract StakingRewards is ReentrancyGuard {
         if (block.timestamp-sk.time<MiniLockDuration){
             revert UnFulfill();
         }
+
+        (bool result,uint256 reward,uint256 time)=claimRewardGo();
+        console.log("result:",result,"  reward:",reward/PRECISION);
         uint256 stakeAmount=sk.amount;
         uint256 stakeStartTime=sk.time;
         sk.amount=0;
         sk.time=0;
-        uint256 reward=calcRewardToken(stakeAmount, stakeStartTime);
-        uint256 totalRewardAmount=reward+rewardsAmount[msg.sender];
+        uint256 totalRewardAmount=reward;
         //calculate reward fee
-        uint256 fee=totalRewardAmount*withdrawFee/100;
+        uint256 fee=totalRewardAmount*withdrawFeeRate/100;
         totalRewardAmount-=fee;
         waitAndLiquifyBalance+=fee;
         uint256 totalAmount=stakeAmount+totalRewardAmount;
-        
+        console.log("totalAmount:",totalAmount);
+
         rewardsAmount[msg.sender]=0;//reset zero
         totalStakedAmount-=stakeAmount;//cat
+        uint256 currentBalance=stakingToken.balanceOf(address(this));
+        console.log("currentBalance:",currentBalance);
         stakingToken.safeTransfer(msg.sender, totalAmount);
 
-        if(waitAndLiquifyBalance>=100){
+        if(waitAndLiquifyBalance/PRECISION>=100){
             addLiquify();
         }
         hasDrawAmount+=totalAmount;
@@ -165,6 +179,7 @@ contract StakingRewards is ReentrancyGuard {
         emit Unstake(msg.sender,stakeAmount,totalRewardAmount,block.timestamp);
         return true;
     }
+
     //add to lq
     function addLiquify() private lockTheSwap {
         if(waitAndLiquifyBalance<100){

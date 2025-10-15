@@ -6,7 +6,8 @@ import {console} from "forge-std/console.sol";
 import {StakingRewards} from "../src/StakingRewards.sol";
 import {MemeSunToken} from "../src/MemeSunToken.sol";
 import {IUniswapV2Router02} from "../src/IUniswapV2Router02.sol";
-
+//测试质押领取奖。
+//策略-时间线性发放奖励
 contract TestStakingReward is Test {
     StakingRewards public stakingRewards;
     MemeSunToken public memeSunToken;
@@ -16,15 +17,17 @@ contract TestStakingReward is Test {
     uint256 public constant PRECISION = 10**18;
     function setUp() public {
         uint256 total=10000000 * 10**18;
+        uint256 totalReward=total*20/100;
         memeSunToken = new MemeSunToken("MemeSun","SMT",total);
         uniswapV2Router = IUniswapV2Router02(0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008);
-        stakingRewards = new StakingRewards(address(memeSunToken), address(uniswapV2Router),total*50/100);
+        stakingRewards = new StakingRewards(address(memeSunToken), address(uniswapV2Router),totalReward);
 
         console.log("memeSunToken:",address(memeSunToken));
         console.log("uniswapV2Router:",address(uniswapV2Router));
         console.log("stakingRewards:",address(stakingRewards));
 
-        memeSunToken.transfer(user1,10000*10**18);
+        memeSunToken.transfer(address(stakingRewards),totalReward);//把奖励总额提前锁入活动合约
+        memeSunToken.transfer(user1,10000*10**18);//给用户转账 方便测试
         memeSunToken.transfer(user2,10000*10**18);
 
         console.log("user1:",user1);
@@ -51,9 +54,46 @@ contract TestStakingReward is Test {
         vm.assertEq(flag,true);
         console.log(unicode"用户2质押后合约余额:",memeSunToken.balanceOf(address(stakingRewards))/PRECISION);
         console.log(unicode"当前质押总金额：",stakingRewards.totalStakedAmount()/PRECISION);
-        console.log(unicode"每秒释放奖励：",stakingRewards.rewardTokenPerSecond()/PRECISION);
         vm.stopPrank();
 
+        //把时间往后加1天
+        skip(1 days);
+        //模拟领取奖励
+        uint256 reward1=stakingRewards.earned(user1);
+        uint256 reward2=stakingRewards.earned(user2);
+        console.log(unicode"1天后 用户1预计质押奖励:",weiToEthWithDecimals(reward1,8));
+        console.log(unicode"1天后 用户2预计质押奖励:",weiToEthWithDecimals(reward2,8));
+        //模拟异常领取
+        console.log(unicode"开始模拟异常领取奖励----");
+        flag = stakingRewards.claimReward();
+        vm.assertEq(flag, false);
+
+        //模拟用户1领取奖励
+        console.log(unicode"开始模拟用户1领取----");
+        vm.startPrank(user1);
+        flag=stakingRewards.claimReward();
+        vm.assertEq(flag, true);
+        uint256 hasReceived=stakingRewards.getRewardToken(user1);
+        console.log(unicode"用户1已领取的奖励：",weiToEthWithDecimals(hasReceived,8));
+        vm.stopPrank();
+        //异常接触质押
+//        flag=stakingRewards.unStaked();
+//        vm.assertEq(flag, false);
+        console.log(unicode"15天后开始模拟用户解除质押----");
+        vm.startPrank(user1);
+        //跳转15天,解除质押
+        skip(15 days);
+        flag = stakingRewards.unStaked();
+        vm.assertEq(flag, true);
+        vm.stopPrank();
+
+        //当前质押情况
+        console.log(unicode"质押合约余额:",memeSunToken.balanceOf(address(stakingRewards))/PRECISION);
+        console.log(unicode"当前质押总金额：",stakingRewards.totalStakedAmount()/PRECISION);
+        StakingRewards.Stake memory stake=stakingRewards.getStake(user1);
+        console.log("amount:",stake.amount);
+        console.log("time:",stake.time);
+        console.log("claimTime:",stake.claimTime);
     }
 
 
