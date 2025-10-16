@@ -94,6 +94,7 @@ contract TestStakingReward is Test {
         console.log("amount:",stake.amount);
         console.log("time:",stake.time);
         console.log("claimTime:",stake.claimTime);
+
     }
 
 
