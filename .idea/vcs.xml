@@ -7,5 +7,6 @@
     <mapping directory="$PROJECT_DIR$/lib/openzeppelin-contracts/lib/erc4626-tests" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/openzeppelin-contracts/lib/forge-std" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/openzeppelin-contracts/lib/halmos-cheatcodes" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/lib/v2-core" vcs="Git" />
   </component>
 </project>

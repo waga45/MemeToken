@@ -17,7 +17,7 @@ contract HoldAirdropCliam is ReentrancyGuard,EIP712 {
     using SafeERC20 for IERC20;
     IERC20 public immutable rewardToken;
     address public authSigner;
-    mapping(bytes32 => bool) public usedNonce;//维护已经使用的nonce，由后台维护
+    mapping(uint256 => bool) public usedNonce;//维护已经使用的nonce，由后台维护
     struct AirdropVoucher{
         uint256 id;
         address account;
@@ -30,6 +30,7 @@ contract HoldAirdropCliam is ReentrancyGuard,EIP712 {
     error OnlyOwnerCall();
     error NotExitAirDrop();
     error ExpireTime();
+    error HasRecovered();
     error SignVerifyFiled();
     error NotEnoughBalance();
 
@@ -53,7 +54,7 @@ contract HoldAirdropCliam is ReentrancyGuard,EIP712 {
     }
 
     //calculate sigtrue
-    function hashVoucher(uint256 id,address account,uint256 amount,uint256 nonce,uint256 expire) internal returns(bytes32) {
+    function hashVoucher(uint256 id,address account,uint256 amount,uint256 nonce,uint256 expire) internal view returns(bytes32) {
         bytes32 structHash = keccak256(
             abi.encode(VOUCHER_TYPEHASH,id,account,amount,nonce,expire)
         );
@@ -61,12 +62,15 @@ contract HoldAirdropCliam is ReentrancyGuard,EIP712 {
     }
 
     //领取空投  calldata 只读 低成gas，memory需要复制到内存 gas消耗多
-    function claimBySignature(uint256 id,uint256 amount,uint256 nonce,uint256 expire,bytes calldata signature) external returns(bool) {
+    function claimBySignature(uint256 id,uint256 amount,uint256 nonce,uint256 expire,bytes calldata signature) external nonReentrant returns(bool) {
         if (id<=0){
             revert NotExitAirDrop();
         }
         if(block.timestamp>expire){
             revert ExpireTime();
+        }
+        if(usedNonce[nonce]){
+            revert HasRecovered();
         }
         uint256 balance=rewardToken.balanceOf(address(this));
         if(balance<amount){
